@@ -10,8 +10,10 @@ import scrapy
 
 class WikipediaSpiderItem(scrapy.Item):
     # define the fields for your item here like:
-    # name = scrapy.Field()
     entity = scrapy.Field()
     desc = scrapy.Field()
-    nextEntity = scrapy.Field()
-    referer = scrapy.Field()
+    parentNode = scrapy.Field()
+    sonNode = scrapy.Field()
+    currentUrl = scrapy.Field()
+
+

@@ -13,51 +13,84 @@
 
 from urllib.parse import unquote
 import scrapy
+from scrapy.http import Request
 
 class WikipediaSpider(scrapy.Spider):
     name = "WikipediaSpider"
-    entities = list()
     start_urls = [
-        'https://en.wikipedia.org/wiki/Voltage'
+        'https://en.wikipedia.org/wiki/Category:Electronics'
     ]
 
     def parse(self, response):
+
+        # parse current entity name
+        current_url = response.request.url
+        entity_name = current_url.split(':')[-1]
+
+        # parse referer entity name
+        referer_url = response.request.headers.get('referer')
+        if referer_url is None:
+            # origin entity
+            referer = "Electronics"
+        else:
+            referer_url = str(referer_url,encoding='utf-8')
+            referer = referer_url.split(':')[-1]
+
+        # get next entities
         next_entities = list()
+        entities_href =  response.xpath('//*[@id="mw-subcategories"]/div/div/div/ul/li/div/div/a/@href').getall()
+        for entity_href in entities_href:
+            entity = entity_href.split(':')[-1]
+            next_entities.append(entity)
 
-        entity = response.css('h1.firstHeading::text').get()
-        self.entities.append(entity)
+        # get desc
+        current_desc_hrefs = response.xpath('//*[@id="mw-pages"]/div/div/div[1]/ul/li/a/@href').getall()
 
-        # todo: 找到toc，然后正则匹配mw-parser-output到toc的p标签，解析其中的文本。
-        desc = ''
+        current_desc_href = ''
+        hasDesc = False
+        if current_desc_hrefs:
+            for i in current_desc_hrefs:
+                if i == "/wiki/" + entity_name:
+                    current_desc_href = i
+                    break
 
-        link_entities = response.xpath('//*[@id="mw-content-text"]/div/div[@role="navigation"]/following-sibling::div/ul/li/a/@href').getall()
+            if current_desc_href == '':
+                desc = ''
+            # 存在该实体的定义页面，发起请求
+            else:
+                hasDesc = True
+                req_url = response.urljoin(current_desc_href)
+                result = {}
+                result['entity'] = entity_name
+                result['parentNode'] = referer
+                result['sonNode'] = next_entities
+                result['currentUrl'] = current_url
+                yield Request(url=req_url,callback=self.extrac_desc,meta={'res':result})
 
-        # 另外一种情况
-        if not link_entities:
-            link_entities = response.xpath(
-                '//*[@id="mw-content-text"]/div/div[@role="navigation"]/following-sibling::ul[1]/li/a/@href').getall()
+        # result is empty
+        else:
+            desc = ''
 
-        # process entitles
-        for i in link_entities:
-            entitity_name = unquote(i.split('/')[-1],'utf-8')
-            next_entities.append(entitity_name)
-
-        if link_entities:
+        # save result if desc is empty
+        if not hasDesc:
             yield {
-                'entity': entity,
-                'desc': desc,
-                'nextEntity': ','.join(next_entities),
-                'referer': response.request.headers.get('referer')
+                "entity": entity_name,
+                "desc" : desc,
+                "parentNode" : referer,
+                "sonNode" : next_entities,
+                "currentUrl": current_url
             }
 
-            for link_entity in link_entities:
-                entity = unquote(link_entity.split('/')[-1],'utf-8')
+        for next in entities_href:
+            print("next entity name is " + next)
+            next_page = response.urljoin(next)
+            yield scrapy.Request(next_page, callback=self.parse)
 
-                print("entity name is " + entity)
+    def extrac_desc(self,response):
+        result = response.meta['res']
+        data = response.selector.xpath('//*[@id="mw-content-text"]/div/p[1]')
+        desc = data.xpath('string(.)').extract()[0]
+        result['desc'] = desc
 
-                print(self.entities)
-                if entity not in self.entities:
-                    next_page = response.urljoin(link_entity)
-                    yield scrapy.Request(next_page, callback=self.parse)
-
+        yield result
 
