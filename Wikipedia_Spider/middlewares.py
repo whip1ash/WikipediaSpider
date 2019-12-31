@@ -6,6 +6,7 @@
 # https://docs.scrapy.org/en/latest/topics/spider-middleware.html
 
 from scrapy import signals
+from CustomSetting.setting import custom_proxy_setting
 
 
 class WikipediaSpiderSpiderMiddleware(object):
@@ -81,7 +82,7 @@ class WikipediaSpiderDownloaderMiddleware(object):
         # return None
 
         # use local shadowsocks proxy
-        request.meta['proxy'] = "https://127.0.0.1:1087"
+        request.meta['proxy'] = custom_proxy_setting
         return None
 
     def process_response(self, request, response, spider):
