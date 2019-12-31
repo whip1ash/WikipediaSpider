@@ -14,6 +14,7 @@
 from urllib.parse import unquote
 import scrapy
 from scrapy.http import Request
+import re
 
 class WikipediaSpider(scrapy.Spider):
     name = "WikipediaSpider"
@@ -49,6 +50,10 @@ class WikipediaSpider(scrapy.Spider):
         entities_href =  response.xpath('//*[@id="mw-subcategories"]/div/div/div/ul/li/div/div/a/@href').getall()
         for entity_href in entities_href:
             entity = entity_href.split(':')[-1]
+
+            entity = unquote(entity,'utf-8') 
+            # problem cant import
+
             next_entities.append(entity)
 
         # get desc
@@ -105,8 +110,8 @@ class WikipediaSpider(scrapy.Spider):
 
     def extrac_desc(self,response):
         result = response.meta['res']
-        data = response.selector.xpath('//*[@id="mw-content-text"]/div/p[1]')
-        desc = data.xpath('string(.)').extract()[0]
+        # xpath抓取desc定义，选取id为toc的div前所有p标签的内容然后过正则删除reference
+        desc = re.sub(r'\[\d+\]','',''.join(response.selector.xpath('//*[@id="toc"]/preceding::p').xpath('string(.)').extract()))
         result['desc'] = desc
         result['deep'] = response.meta['deep']
 
