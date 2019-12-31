@@ -2,3 +2,4 @@
 output.json
 *.py[cod]
 __pycache__
+CustomSetting/setting.py
