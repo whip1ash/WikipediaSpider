@@ -1,3 +1,4 @@
 .idea
 output.json
-
+__pycache__
+*.pyc
