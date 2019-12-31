@@ -20,8 +20,16 @@ class WikipediaSpider(scrapy.Spider):
     start_urls = [
         'https://en.wikipedia.org/wiki/Category:Electronics'
     ]
+    init_deep = False
+    # todo: setting  根据不同的实体限制不同的深度
+    count = 2
 
     def parse(self, response):
+        # init
+        if not self.init_deep :
+            deep = 0
+        else:
+            deep = response.meta['deep']
 
         # parse current entity name
         current_url = response.request.url
@@ -65,12 +73,11 @@ class WikipediaSpider(scrapy.Spider):
                 result['parentNode'] = referer
                 result['sonNode'] = next_entities
                 result['currentUrl'] = current_url
-                yield Request(url=req_url,callback=self.extrac_desc,meta={'res':result})
+                yield Request(url=req_url,callback=self.extrac_desc,meta={'res':result,'deep':deep})
 
         # result is empty
         else:
             desc = ''
-
         # save result if desc is empty
         if not hasDesc:
             yield {
@@ -78,19 +85,30 @@ class WikipediaSpider(scrapy.Spider):
                 "desc" : desc,
                 "parentNode" : referer,
                 "sonNode" : next_entities,
-                "currentUrl": current_url
+                "currentUrl": current_url,
+                "deep": deep,
             }
 
-        for next in entities_href:
-            print("next entity name is " + next)
-            next_page = response.urljoin(next)
-            yield scrapy.Request(next_page, callback=self.parse)
+        if self.init_deep:
+            current_deep = deep
+            current_deep += 1
+            if current_deep < self.count:
+                for next in entities_href:
+                    next_page = response.urljoin(next)
+                    yield scrapy.Request(next_page, callback=self.parse,meta={'deep':current_deep})
+        else:
+            self.init_deep = True
+            for next in entities_href:
+                next_page = response.urljoin(next)
+                yield scrapy.Request(next_page, callback=self.parse, meta={'deep': deep})
+
 
     def extrac_desc(self,response):
         result = response.meta['res']
         data = response.selector.xpath('//*[@id="mw-content-text"]/div/p[1]')
         desc = data.xpath('string(.)').extract()[0]
         result['desc'] = desc
+        result['deep'] = response.meta['deep']
 
         yield result
 

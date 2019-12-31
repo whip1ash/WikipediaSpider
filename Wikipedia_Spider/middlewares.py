@@ -18,6 +18,9 @@ class WikipediaSpiderSpiderMiddleware(object):
         # This method is used by Scrapy to create your spiders.
         s = cls()
         crawler.signals.connect(s.spider_opened, signal=signals.spider_opened)
+
+
+
         return s
 
     def process_spider_input(self, response, spider):
@@ -82,6 +85,8 @@ class WikipediaSpiderDownloaderMiddleware(object):
 
         # use local shadowsocks proxy
         request.meta['proxy'] = "https://127.0.0.1:1087"
+
+
         return None
 
     def process_response(self, request, response, spider):
@@ -101,7 +106,9 @@ class WikipediaSpiderDownloaderMiddleware(object):
         # - return None: continue processing this exception
         # - return a Response object: stops process_exception() chain
         # - return a Request object: stops process_exception() chain
-        pass
+        if isinstance(exception,Exception):
+            print("catched a exception,and end the spider ")
+            return None
 
     def spider_opened(self, spider):
         spider.logger.info('Spider opened: %s' % spider.name)
