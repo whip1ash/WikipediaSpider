@@ -23,7 +23,7 @@ class WikipediaSpider(scrapy.Spider):
     ]
     init_deep = False
     # todo: setting  根据不同的实体限制不同的深度
-    count = 2
+    # count = 2
 
     def parse(self, response):
         # init
@@ -97,7 +97,8 @@ class WikipediaSpider(scrapy.Spider):
         if self.init_deep:
             current_deep = deep
             current_deep += 1
-            if current_deep < self.count:
+            conut = self.get_deep_limitation(entity_name,referer)
+            if current_deep < count:
                 for next in entities_href:
                     next_page = response.urljoin(next)
                     yield scrapy.Request(next_page, callback=self.parse,meta={'deep':current_deep})
@@ -117,3 +118,28 @@ class WikipediaSpider(scrapy.Spider):
 
         yield result
 
+    def get_deep_limitation(self,entity_name,referer):
+        count = {
+                 "Electronic_engineering" : 5,
+                 "Embedded_systems" : 5,
+                 "Audio" : 5,
+                 "Integrate_circuit" : 5,
+                 "DIGITAL_circuit" : 5,
+                 "Microwave" : 5,
+        }
+        # 只能爬一层因为子链永远是2，
+        # 向上寻找上一层节点的count(树？)，或将count作为权重跟deep一样向下传递
+        for i in count:
+            if entity_name == i:
+                return count[i]
+            else:
+                if referer == "Electronics"
+                    return 2
+                else:
+                    return self.get_deep_limitation(referer)
+
+    # def find_parent(self,entity_name):
+        
+    #     pass
+
+# class tree:
