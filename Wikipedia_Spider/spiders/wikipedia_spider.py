@@ -22,6 +22,7 @@ class WikipediaSpider(scrapy.Spider):
         'https://en.wikipedia.org/wiki/Category:Electronics'
     ]
     init_deep = False
+    init_count = False
     # todo: setting  根据不同的实体限制不同的深度
     # count = 2
 
@@ -56,6 +57,14 @@ class WikipediaSpider(scrapy.Spider):
 
             next_entities.append(entity)
 
+        # initialize count
+        if not self.init_count:
+            count = 1
+        elif deep == 0:
+            count = self.get_deep_limitation(entity_name)
+        else:
+            count = response.meta['count']
+
         # get desc
         current_desc_hrefs = response.xpath('//*[@id="mw-pages"]/div/div/div[1]/ul/li/a/@href').getall()
 
@@ -78,7 +87,7 @@ class WikipediaSpider(scrapy.Spider):
                 result['parentNode'] = referer
                 result['sonNode'] = next_entities
                 result['currentUrl'] = current_url
-                yield Request(url=req_url,callback=self.extrac_desc,meta={'res':result,'deep':deep})
+                yield Request(url=req_url,callback=self.extrac_desc,meta={'res':result,'deep':deep,'count':count})
 
         # result is empty
         else:
@@ -92,18 +101,20 @@ class WikipediaSpider(scrapy.Spider):
                 "sonNode" : next_entities,
                 "currentUrl": current_url,
                 "deep": deep,
+                "count": count,
             }
 
         if self.init_deep:
             current_deep = deep
             current_deep += 1
-            conut = self.get_deep_limitation(entity_name,referer)
+            # count = self.get_deep_limitation(entity_name,referer)
             if current_deep < count:
                 for next in entities_href:
                     next_page = response.urljoin(next)
-                    yield scrapy.Request(next_page, callback=self.parse,meta={'deep':current_deep})
+                    yield scrapy.Request(next_page, callback=self.parse,meta={'deep':current_deep,'count':count})
         else:
             self.init_deep = True
+            self.init_count = True
             for next in entities_href:
                 next_page = response.urljoin(next)
                 yield scrapy.Request(next_page, callback=self.parse, meta={'deep': deep})
@@ -115,10 +126,11 @@ class WikipediaSpider(scrapy.Spider):
         desc = re.sub(r'\[\d+\]','',''.join(response.selector.xpath('//*[@id="toc"]/preceding::p').xpath('string(.)').extract()))
         result['desc'] = desc
         result['deep'] = response.meta['deep']
+        result['count'] = response.meta['count']
 
         yield result
 
-    def get_deep_limitation(self,entity_name,referer):
+    def get_deep_limitation(self,entity_name):
         count = {
                  "Electronic_engineering" : 5,
                  "Embedded_systems" : 5,
@@ -128,18 +140,10 @@ class WikipediaSpider(scrapy.Spider):
                  "Microwave" : 5,
         }
         # 只能爬一层因为子链永远是2，
-        # 向上寻找上一层节点的count(树？)，或将count作为权重跟deep一样向下传递
+        # 1. 向上寻找上一层节点的count(多叉树存储及遍历？)
+        # 2. 或将count作为权重跟deep一样向下遗传，如果子链中有权重高的怎么解决？赋予更深爬取权限？
         for i in count:
             if entity_name == i:
                 return count[i]
             else:
-                if referer == "Electronics"
-                    return 2
-                else:
-                    return self.get_deep_limitation(referer)
-
-    # def find_parent(self,entity_name):
-        
-    #     pass
-
-# class tree:
+                return 2
