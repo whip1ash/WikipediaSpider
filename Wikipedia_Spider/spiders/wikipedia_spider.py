@@ -44,6 +44,7 @@ class WikipediaSpider(scrapy.Spider):
             referer = "Electronics"
         else:
             referer_url = str(referer_url,encoding='utf-8')
+            referer_url = unquote(referer_url,'utf-8')
             referer = referer_url.split(':')[-1]
 
         # get next entities
